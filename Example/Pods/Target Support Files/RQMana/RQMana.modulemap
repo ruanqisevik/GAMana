@@ -1,0 +1,6 @@
+framework module RQMana {
+  umbrella header "RQMana-umbrella.h"
+
+  export *
+  module * { export * }
+}

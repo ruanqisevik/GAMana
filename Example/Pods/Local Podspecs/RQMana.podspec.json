@@ -1,0 +1,22 @@
+{
+  "name": "RQMana",
+  "version": "0.1.0",
+  "summary": "A short description of RQMana.",
+  "description": "TODO: Add long description of the pod here.",
+  "homepage": "https://github.com/Q.Roy/RQMana",
+  "license": {
+    "type": "MIT",
+    "file": "LICENSE"
+  },
+  "authors": {
+    "Q.Roy": "ruanqisevik@gmail.com"
+  },
+  "source": {
+    "git": "https://github.com/Q.Roy/RQMana.git",
+    "tag": "0.1.0"
+  },
+  "platforms": {
+    "ios": "8.0"
+  },
+  "source_files": "RQMana/Classes/**/*"
+}

@@ -1,0 +1,16 @@
+PODS:
+  - RQMana (0.1.0)
+
+DEPENDENCIES:
+  - RQMana (from `../`)
+
+EXTERNAL SOURCES:
+  RQMana:
+    :path: "../"
+
+SPEC CHECKSUMS:
+  RQMana: ec5c3780bd74117a11ca3bfc6d59c7bf188b601a
+
+PODFILE CHECKSUM: 70d972ee706f50ce9b7bc16e27d28545e038b32d
+
+COCOAPODS: 1.2.1
