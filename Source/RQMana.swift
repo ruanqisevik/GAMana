@@ -123,7 +123,7 @@ extension UIFont {
     func sizeOfString (string: String, constrainedToWidth width: Double) -> CGSize {
         return NSString(string: string).boundingRect(with: CGSize(width: width, height: Double.greatestFiniteMagnitude),
                                                      options: NSStringDrawingOptions.usesLineFragmentOrigin,
-                                                     attributes: [NSAttributedStringKey.font: self],
+                                                     attributes: [NSFontAttributeName: self],
                                                      context: nil).size
     }
 }
@@ -131,22 +131,27 @@ extension UIFont {
 extension UIColor {
     // MARK: - UIColor Extension; (feature: candy for init UIColor)
     
-    public convenience init(red r: Int, green g: Int, blue b: Int, alpha a: CGFloat = 1) {
+    public convenience init(red255Value r: Int, green255Value g: Int, blue255Value b: Int, alpha a: CGFloat = 1) {
         
         self.init(red: CGFloat.init(r) / 255.0, green: CGFloat.init(g) / 255.0, blue: CGFloat.init(b) / 255.0, alpha: a)
     }
     
     public convenience init?(hexString: String, alpha: CGFloat = 1.0) {
-        var formatted = hexString.replacingOccurrences(of: "0x", with: "")
-        formatted = formatted.replacingOccurrences(of: "#", with: "")
-        if let hex = Int(formatted, radix: 16) {
-            let red = CGFloat(CGFloat((hex & 0xFF0000) >> 16)/255.0)
-            let green = CGFloat(CGFloat((hex & 0x00FF00) >> 8)/255.0)
-            let blue = CGFloat(CGFloat((hex & 0x0000FF) >> 0)/255.0)
-            self.init(red: red, green: green, blue: blue, alpha: alpha)
-        } else {
-            return nil
+        let hexString: String = hexString.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        let scanner = Scanner(string: hexString)
+        if (hexString.hasPrefix("#")) {
+            scanner.scanLocation = 1
         }
+        var color: UInt32 = 0
+        scanner.scanHexInt32(&color)
+        let mask = 0x000000FF
+        let r = Int(color >> 16) & mask
+        let g = Int(color >> 8) & mask
+        let b = Int(color) & mask
+        let red   = CGFloat(r) / 255.0
+        let green = CGFloat(g) / 255.0
+        let blue  = CGFloat(b) / 255.0
+        self.init(red:red, green:green, blue:blue, alpha:alpha)
     }
     
     public convenience init(gray: CGFloat, alpha: CGFloat = 1) {
@@ -382,7 +387,7 @@ extension UIButton {
     private func positionLabelRespectToImage(title: String, position: UIViewContentMode, spacing: CGFloat) {
         let imageSize = self.imageRect(forContentRect: self.frame)
         let titleFont = self.titleLabel?.font!
-        let titleSize = title.size(withAttributes: [NSAttributedStringKey.font: titleFont!])
+        let titleSize = title.size(attributes: [NSFontAttributeName: titleFont!])
         
         var titleInsets: UIEdgeInsets
         var imageInsets: UIEdgeInsets
@@ -408,6 +413,38 @@ extension UIButton {
         self.titleEdgeInsets = titleInsets
         self.imageEdgeInsets = imageInsets
     }
+    
+    enum RQButtonTitlePositionType {
+        case right
+        case bottom(spacing: CGFloat)
+        case left
+        case top(spacing: CGFloat)
+    }
+    
+    func setButton(titlePositionType: RQButtonTitlePositionType) {
+        self.layoutIfNeeded()
+        guard let titleLabel = self.titleLabel, let imageView = self.imageView else {
+            return
+        }
+        
+        let titleFrame = titleLabel.frame
+        let imageFrame = imageView.frame
+        
+        let space = titleFrame.origin.x - imageFrame.origin.x - imageFrame.size.width
+        switch titlePositionType {
+        case .top(spacing: let spacing):
+            self.imageEdgeInsets = UIEdgeInsetsMake(titleFrame.size.height + space + spacing, 0, 0, -(titleFrame.size.width))
+            self.titleEdgeInsets = UIEdgeInsetsMake(0, -(imageFrame.size.width), imageFrame.size.height + space + spacing, 0)
+        case .left:
+            self.imageEdgeInsets = UIEdgeInsetsMake(0, titleFrame.size.width + space, 0, -(titleFrame.size.width + space))
+            self.titleEdgeInsets = UIEdgeInsetsMake(0, -(titleFrame.origin.x - imageFrame.origin.x), 0, titleFrame.origin.x - imageFrame.origin.x)
+        case .bottom(spacing: let spacing):
+            self.imageEdgeInsets = UIEdgeInsetsMake(0, 0, titleFrame.size.height + space + spacing, -(titleFrame.size.width))
+            self.titleEdgeInsets = UIEdgeInsetsMake(imageFrame.size.height + space + spacing, -(imageFrame.size.width), 0, 0)
+        default:
+            break
+        }
+    }
 }
 
 extension UIImage {
@@ -423,6 +460,25 @@ extension UIImage {
         let image = UIGraphicsGetImageFromCurrentImageContext()!
         UIGraphicsEndImageContext()
         self.init(cgImage: image.cgImage!)
+    }
+    
+    convenience init?(gradientColors:[UIColor], size:CGSize = CGSize(width: 10, height: 10), locations: [Float] = [] )
+    {
+        UIGraphicsBeginImageContextWithOptions(size, false, 0)
+        let context = UIGraphicsGetCurrentContext()
+        
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let colors = gradientColors.map {(color: UIColor) -> AnyObject! in return color.cgColor as AnyObject! } as NSArray
+        let gradient: CGGradient
+        if locations.count > 0 {
+            let cgLocations = locations.map { CGFloat($0) }
+            gradient = CGGradient(colorsSpace: colorSpace, colors: colors, locations: cgLocations)!
+        } else {
+            gradient = CGGradient(colorsSpace: colorSpace, colors: colors, locations: nil)!
+        }
+        context!.drawLinearGradient(gradient, start: CGPoint(x: 0, y: 0), end: CGPoint(x: 0, y: size.height), options: CGGradientDrawingOptions(rawValue: 0))
+        self.init(cgImage:(UIGraphicsGetImageFromCurrentImageContext()?.cgImage!)!)
+        UIGraphicsEndImageContext()
     }
     
     // MARK: - UIImage Extension; (feature: get image with corner radius)
@@ -471,6 +527,62 @@ extension UIImage {
         context.closePath()
         context.restoreGState()
     }
+    
+    func resize(to newSize: CGSize) -> UIImage {
+        UIGraphicsBeginImageContextWithOptions(newSize, false, 0.0)
+        self.draw(in: CGRect.init(x: 0, y: 0, width: newSize.width, height: newSize.height))
+        let newImage: UIImage = UIGraphicsGetImageFromCurrentImageContext()!
+        UIGraphicsEndImageContext()
+        return newImage
+    }
+    
+    class func imageWithImage(image:UIImage, scaledToSize newSize:CGSize) -> UIImage {
+        UIGraphicsBeginImageContextWithOptions(newSize, false, 0.0)
+        image.draw(in: CGRect.init(x: 0, y: 0, width: newSize.width, height: newSize.height))
+        let newImage:UIImage = UIGraphicsGetImageFromCurrentImageContext()!
+        UIGraphicsEndImageContext()
+        return newImage
+    }
+    
+    static func gradientImage(colors: [UIColor], locations: [CGFloat], size: CGSize, horizontal: Bool = false) -> UIImage {
+        let endPoint = horizontal ? CGPoint(x: 1.0, y: 0.0) : CGPoint(x: 0.0, y: 1.0)
+        return gradientImage(colors: colors, locations: locations, startPoint: CGPoint.zero, endPoint: endPoint, size: size)
+    }
+    
+    static func gradientImage(colors: [UIColor], locations: [CGFloat], startPoint: CGPoint, endPoint: CGPoint, size: CGSize) -> UIImage {
+        UIGraphicsBeginImageContext(size)
+        
+        let context = UIGraphicsGetCurrentContext()
+        UIGraphicsPushContext(context!);
+        
+        let components = colors.reduce([]) { (currentResult: [CGFloat], currentColor: UIColor) -> [CGFloat] in
+            var result = currentResult
+            
+            let numberOfComponents = currentColor.cgColor.numberOfComponents
+            if let components = currentColor.cgColor.components {
+                if numberOfComponents == 2 {
+                    result.append(contentsOf: [components[0], components[0], components[0], components[1]])
+                } else {
+                    result.append(contentsOf: [components[0], components[1], components[2], components[3]])
+                }
+            }
+            
+            
+            return result
+        }
+        
+        let gradient = CGGradient(colorSpace: CGColorSpaceCreateDeviceRGB(), colorComponents: components, locations: locations, count: colors.count);
+        
+        let transformedStartPoint = CGPoint(x: startPoint.x * size.width, y: startPoint.y * size.height)
+        let transformedEndPoint = CGPoint(x: endPoint.x * size.width, y: endPoint.y * size.height)
+        context!.drawLinearGradient(gradient!, start: transformedStartPoint, end: transformedEndPoint, options: []);
+        UIGraphicsPopContext();
+        let gradientImage = UIGraphicsGetImageFromCurrentImageContext();
+        UIGraphicsEndImageContext();
+        
+        return gradientImage!
+    }
+
 }
 
 extension UIImageView {
@@ -564,6 +676,8 @@ extension UIImageView {
 
 
 private var dynamicNavigationBarOverlayKey: Void?
+private var dynamicNavigationBarOriginBackgroundColorKey: Void?
+private var dynamicNavigationBarOriginShadowImageKey: Void?
 
 extension UINavigationBar {
     
@@ -589,7 +703,7 @@ extension UINavigationBar {
     var titleColor: UIColor? {
         get {
             if let attributes = self.titleTextAttributes {
-                if let foregroundColor = attributes[NSAttributedStringKey.foregroundColor] {
+                if let foregroundColor = attributes[NSForegroundColorAttributeName] {
                     return foregroundColor as? UIColor
                 }
                 return nil
@@ -598,7 +712,7 @@ extension UINavigationBar {
         }
         set {
             var newTextAttributes = self.titleTextAttributes ?? [:]
-            newTextAttributes[NSAttributedStringKey.foregroundColor] = newValue
+            newTextAttributes[NSForegroundColorAttributeName] = newValue
             self.titleTextAttributes = newTextAttributes
         }
     }
@@ -606,7 +720,7 @@ extension UINavigationBar {
     var titleFont: UIFont? {
         get {
             if let attributes = self.titleTextAttributes {
-                if let font = attributes[NSAttributedStringKey.font] {
+                if let font = attributes[NSFontAttributeName] {
                     return font as? UIFont
                 }
                 return nil
@@ -615,8 +729,31 @@ extension UINavigationBar {
         }
         set {
             var newTextAttributes = self.titleTextAttributes ?? [:]
-            newTextAttributes[NSAttributedStringKey.font] = newValue
+            newTextAttributes[NSFontAttributeName] = newValue
             self.titleTextAttributes = newTextAttributes
+        }
+    }
+    
+    var isHideShadowImage: Bool {
+        get {
+            return !(self.originShadowImage == nil)
+        }
+        set {
+            if newValue {
+                self.originShadowImage = self.shadowImage
+                self.shadowImage = UIImage()
+            } else {
+                self.shadowImage = self.originShadowImage
+            }
+        }
+    }
+    
+    var originShadowImage: UIImage? {
+        get {
+            return objc_getAssociatedObject(self, &dynamicNavigationBarOriginShadowImageKey) as? UIImage
+        }
+        set {
+            objc_setAssociatedObject(self, &dynamicNavigationBarOriginShadowImageKey, newValue, objc_AssociationPolicy.OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         }
     }
     
@@ -627,6 +764,15 @@ extension UINavigationBar {
         }
         set {
             objc_setAssociatedObject(self, &dynamicNavigationBarOverlayKey, newValue, objc_AssociationPolicy.OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        }
+    }
+    
+    var originBackgroundColor: UIColor? {
+        get {
+            return objc_getAssociatedObject(self, &dynamicNavigationBarOriginBackgroundColorKey) as? UIColor
+        }
+        set {
+            objc_setAssociatedObject(self, &dynamicNavigationBarOriginBackgroundColorKey, newValue, objc_AssociationPolicy.OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         }
     }
     
@@ -678,6 +824,8 @@ extension UINavigationBar {
     
     private func initOverlay() {
         self.setBackgroundImage(UIImage(), for: .default)
+        self.originBackgroundColor = self.backgroundColor
+        self.backgroundColor = UIColor.clear
         self.overlay = UIView.init(frame: CGRect.init(origin: CGPoint.zero, size: CGSize.init(width: self.bounds.width, height: self.bounds.height + 20)))
         self.overlay?.isUserInteractionEnabled = false
         self.overlay?.autoresizingMask = UIViewAutoresizing.flexibleWidth
@@ -685,6 +833,14 @@ extension UINavigationBar {
     }
     
     func removeOverlay() {
+        self.backgroundColor = self.originBackgroundColor
+        self.setBackgroundImage(nil, for: .default)
+        self.overlay?.removeFromSuperview()
+        self.overlay = nil
+    }
+    
+    func removeOverlayWithOutBackgroundImage() {
+        self.backgroundColor = self.originBackgroundColor
         self.overlay?.removeFromSuperview()
         self.overlay = nil
     }
@@ -695,13 +851,9 @@ extension UITabBarItem {
     
     //MARK: UITabBarItem Extension; (feature: candy for setup tabBarItem)
     func setTitle(_ font: UIFont, _ color: UIColor, for state: UIControlState) {
-        let currentTextAttributesDictionary = self.titleTextAttributes(for: state) ?? [:]
-        var newTextAttributes: [NSAttributedStringKey : Any] = [:]
-        currentTextAttributesDictionary.forEach { (key, value) in
-            newTextAttributes[NSAttributedStringKey.init(key)] = value
-        }
-        newTextAttributes[NSAttributedStringKey.font] = font
-        newTextAttributes[NSAttributedStringKey.foregroundColor] = color
+        var newTextAttributes = self.titleTextAttributes(for: state) ?? [:]
+        newTextAttributes[NSFontAttributeName] = font
+        newTextAttributes[NSForegroundColorAttributeName] = color
         self.setTitleTextAttributes(newTextAttributes, for: state)
     }
 }
