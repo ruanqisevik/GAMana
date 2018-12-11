@@ -793,6 +793,10 @@ extension UINavigationBar {
         case `default`
     }
     
+    private var statusBarHeight: CGFloat {
+        return UIApplication.shared.statusBarFrame.height
+    }
+
     var overlayPositionType: OverlayPositionType? {
         get {
             if self.overlay == nil {
@@ -810,13 +814,13 @@ extension UINavigationBar {
                 guard self.overlay != nil else {
                     return
                 }
-                let newFrame = CGRect.init(origin: CGPoint.zero, size: CGSize(width: self.bounds.width, height: self.bounds.height + 20))
+                let newFrame = CGRect.init(origin: CGPoint.zero, size: CGSize(width: self.bounds.width, height: self.bounds.height + statusBarHeight))
                 self.overlay?.frame = newFrame
             default:
                 guard self.overlay != nil else {
                     return
                 }
-                let newFrame = CGRect.init(origin: CGPoint.init(x: 0, y: 20), size: CGSize(width: self.bounds.width, height: self.bounds.height))
+                let newFrame = CGRect.init(origin: CGPoint.init(x: 0, y: statusBarHeight), size: CGSize(width: self.bounds.width, height: self.bounds.height))
                 self.overlay?.frame = newFrame
             }
         }
@@ -826,7 +830,7 @@ extension UINavigationBar {
         self.setBackgroundImage(UIImage(), for: .default)
         self.originBackgroundColor = self.backgroundColor
         self.backgroundColor = UIColor.clear
-        self.overlay = UIView.init(frame: CGRect.init(origin: CGPoint.zero, size: CGSize.init(width: self.bounds.width, height: self.bounds.height + 20)))
+        self.overlay = UIView.init(frame: CGRect.init(origin: CGPoint.zero, size: CGSize.init(width: self.bounds.width, height: self.bounds.height + statusBarHeight)))
         self.overlay?.isUserInteractionEnabled = false
         self.overlay?.autoresizingMask = UIViewAutoresizing.flexibleWidth
         self.subviews.first?.insertSubview(self.overlay!, at: 0)
